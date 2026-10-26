@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fire Boy 🔥</title>
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;background:#160c25;color:white;
+ font-family:Arial;text-align:center
+}
+h1{color:#ff7738;text-shadow:0 0 20px red}
+#hud{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
+#hud span{background:#35213e;padding:10px 15px;border-radius:12px}
+canvas{
+ display:block;width:96%;max-width:800px;height:auto;
+ margin:15px auto;border:3px solid #ff7138;
+ border-radius:12px;background:#241333
+}
+button{
+ padding:14px 18px;margin:4px;border:0;border-radius:12px;
+ background:#ff823d;color:#240c21;font-size:18px;
+ font-weight:bold;touch-action:none
+}
+#msg{min-height:24px;color:#ffd166}
+</style>
+</head>
+<body>
+<h1>🔥 FIRE BOY</h1>
+<div id="hud">
+ <span>💎 Elmas: <b id="score">0</b></span>
+ <span>❤️ Can: <b id="life">3</b></span>
+</div>
+<canvas id="game" width="800" height="420"></canvas>
+<div>
+ <button id="left">⬅️</button>
+ <button id="jump">⬆️ ZIPLA</button>
+ <button id="right">➡️</button>
+ <button id="reset">🔄</button>
+</div>
+<p id="msg">Elmasları topla, lavlara düşme!</p>
+<script>
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+const $=id=>document.getElementById(id);
+let keys={},score=0,life=3,frame=0,finished=false;
+const p={x:50,y:300,w:28,h:38,vx:0,vy:0,ground:false};
+const floor=365;
+let gems=[],lava=[],platforms=[];
+
+function init(){
+ p.x=50;p.y=300;p.vx=0;p.vy=0;
+ score=0;life=3;frame=0;finished=false;
+ gems=[
+  {x:155,y:305,got:false},{x:275,y:250,got:false},
+  {x:410,y:300,got:false},{x:540,y:235,got:false},
+  {x:670,y:290,got:false},{x:745,y:310,got:false}
+ ];
+ lava=[
+  {x:180,w:75,phase:0},
+  {x:390,w:85,phase:2},
+  {x:590,w:75,phase:4}
+ ];
+ platforms=[
+  {x:0,y:floor,w:800,h:55},
+  {x:115,y:325,w:100,h:14},
+  {x:245,y:275,w:95,h:14},
+  {x:375,y:325,w:100,h:14},
+  {x:510,y:260,w:100,h:14},
+  {x:640,y:320,w:110,h:14}
+ ];
+ updateHUD();
+ $("msg").textContent="Elmasları topla, lavlara düşme!";
+}
+function updateHUD(){
+ $("score").textContent=score;
+ $("life").textContent=life;
+}
+function jump(){
+ if(p.ground&&!finished){p.vy=-11.5;p.ground=false}
+}
+document.addEventListener("keydown",e=>{
+ keys[e.code]=true;
+ if(["Space","ArrowUp"].includes(e.code)){e.preventDefault();jump()}
+});
+document.addEventListener("keyup",e=>keys[e.code]=false);
+function bind(id,key){
+ const b=$(id);
+ b.addEventListener("pointerdown",e=>{
+  e.preventDefault();keys[key]=true;
+  b.setPointerCapture(e.pointerId);
+  if(key==="Space")jump();
+ });
+ ["pointerup","pointercancel","lostpointercapture"].forEach(ev=>
+ b.addEventListener(ev,()=>keys[key]=false));
+}
+bind("left","ArrowLeft");
+bind("right","ArrowRight");
+bind("jump","Space");
+$("reset").onclick=init;
+
+function overlap(a,b){
+ return a.x<b.x+b.w&&a.x+a.w>b.x&&
+ a.y<b.y+b.h&&a.y+a.h>b.y;
+}
+function damage(){
+ life--;updateHUD();
+ if(life<=0){
+  finished=true;
+  $("msg").textContent="🔥 Oyun bitti! Yeniden dene!";
+ }else{
+  p.x=45;p.y=290;p.vy=0;
+  $("msg").textContent="Dikkat! Lav yaktı! ❤️";
+ }
+}
+function update(){
+ if(finished)return;
+ frame++;
+ p.vx=0;
+ if(keys.ArrowLeft||keys.KeyA)p.vx=-4;
+ if(keys.ArrowRight||keys.KeyD)p.vx=4;
+ p.x=Math.max(0,Math.min(772,p.x+p.vx));
+ let old=p.y;
+ p.vy=Math.min(12,p.vy+.48);
+ p.y+=p.vy;p.ground=false;
+
+ for(const a of platforms){
+  if(p.vy>=0&&p.x+p.w>a.x&&p.x<a.x+a.w&&
+  old+p.h<=a.y+3&&p.y+p.h>=a.y){
+   p.y=a.y-p.h;p.vy=0;p.ground=true;
+  }
+ }
+ for(const g of gems){
+  if(!g.got&&overlap(p,{x:g.x-9,y:g.y-9,w:18,h:18})){
+   g.got=true;score++;updateHUD();
+  }
+ }
+ for(const l of lava){
+  let hot=Math.sin(frame*.06+l.phase)>-.3;
+  if(hot&&overlap(p,{x:l.x,y:floor-10,w:l.w,h:10})){
+   damage();break;
+  }
+ }
+ if(p.y>450)damage();
+ if(p.x>760){
+  finished=true;
+  $("msg").textContent="🏆 Kazandın! Harika oynadın!";
+ }
+}
+function draw(){
+ let grad=ctx.createLinearGradient(0,0,0,420);
+ grad.addColorStop(0,"#29143d");
+ grad.addColorStop(1,"#63263a");
+ ctx.fillStyle=grad;ctx.fillRect(0,0,800,420);
+
+ // Parlayan yıldızlar
+ for(let i=0;i<45;i++){
+  let x=(i*137)%800,y=(i*67)%230;
+  ctx.fillStyle=i%3?"#ffc078":"#fff0b0";
+  ctx.fillRect(x,y,2,2);
+ }
+ // Arka plan kayaları
+ ctx.fillStyle="#41213e";
+ for(let i=0;i<8;i++){
+  ctx.beginPath();ctx.moveTo(i*120,365);
+  ctx.lineTo(i*120+60,180+(i%3)*35);
+  ctx.lineTo(i*120+120,365);ctx.fill();
+ }
+ // Lav
+ for(const l of lava){
+  ctx.fillStyle="#d52b32";
+  ctx.fillRect(l.x,355,l.w,65);
+  ctx.fillStyle="#ff672d";
+  ctx.fillRect(l.x,358+Math.sin(frame*.1+l.phase)*4,l.w,9);
+  for(let i=0;i<4;i++){
+   ctx.fillStyle="#ffb52e";
+   ctx.beginPath();
+   ctx.arc(l.x+10+i*(l.w-20)/3,
+    367+Math.sin(frame*.12+i+l.phase)*5,4,0,7);
+   ctx.fill();
+  }
+ }
+ // Platformlar
+ for(const a of platforms){
+  ctx.fillStyle="#4e3156";ctx.fillRect(a.x,a.y,a.w,a.h);
+  ctx.fillStyle="#ff8744";ctx.fillRect(a.x,a.y,a.w,5);
+ }
+ // Elmaslar
+ for(const g of gems){
+  if(g.got)continue;
+  let bob=Math.sin(frame*.08+g.x)*4;
+  ctx.save();ctx.translate(g.x,g.y+bob);ctx.rotate(Math.PI/4);
+  ctx.fillStyle="#55f5ff";ctx.fillRect(-8,-8,16,16);
+  ctx.fillStyle="#d8ffff";ctx.fillRect(-4,-7,4,8);
+  ctx.restore();
+ }
+ // Ateş çocuk
+ ctx.fillStyle="#ff4b24";
+ ctx.beginPath();
+ ctx.moveTo(p.x+3,p.y+13);
+ ctx.lineTo(p.x-3,p.y-3-Math.sin(frame*.3)*3);
+ ctx.lineTo(p.x+12,p.y+5);
+ ctx.lineTo(p.x+23,p.y-5-Math.sin(frame*.3)*3);
+ ctx.lineTo(p.x+27,p.y+15);
+ ctx.fill();
+ ctx.fillStyle="#ffb044";
+ ctx.fillRect(p.x,p.y+12,p.w,p.h-12);
+ ctx.fillStyle="#ffe0a3";
+ ctx.fillRect(p.x+4,p.y+9,20,19);
+ ctx.fillStyle="#26152c";
+ ctx.fillRect(p.x+8,p.y+15,4,5);
+ ctx.fillRect(p.x+18,p.y+15,4,5);
+ ctx.fillStyle="#fff";
+ ctx.fillRect(p.x+6,p.y+34,7,5);
+ ctx.fillRect(p.x+18,p.y+34,7,5);
+
+ // Bitiş kapısı
+ ctx.fillStyle="#ffd166";ctx.fillRect(768,280,5,85);
+ ctx.fillStyle="#4ef0a5";ctx.fillRect(773,282,22,24);
+ ctx.fillStyle="#fff";ctx.font="12px Arial";
+ ctx.fillText("FINISH",738,270);
+
+ if(finished){
+  ctx.fillStyle="#160c25dd";ctx.fillRect(0,0,800,420);
+  ctx.textAlign="center";
+  ctx.fillStyle="#ffd166";ctx.font="bold 38px Arial";
+  ctx.fillText(life<=0?"GAME OVER":"YOU WIN!",400,190);
+  ctx.fillStyle="white";ctx.font="22px Arial";
+  ctx.fillText("💎 Elmas: "+score,400,230);
+  ctx.font="17px Arial";
+  ctx.fillText("Tekrar oynamak için 🔄 butonuna bas",400,270);
+  ctx.textAlign="left";
+ }
+}
+function loop(){update();draw();requestAnimationFrame(loop)}
+init();loop();
+</script>
+</body>
+</html>
